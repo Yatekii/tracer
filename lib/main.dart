@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
+
+import 'package:tracer/greeter.dart';
 // import 'package:flutter_palette/flutter_palette.dart';
 
 void main() {
@@ -15,7 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Tracer',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -28,7 +30,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'Tracer'),
     );
   }
 }
@@ -57,37 +59,36 @@ class _MyHomePageState extends State<MyHomePage> {
   double _pan = 0;
 
   void initState() {
+    super.initState();
     _setBars();
   }
 
   void _setBars() {
     setState(() {
       _bars = [];
-      var rng = new Random();
-      for (int j = 0; j < 1000; j += 100) {
-        for (int i = 0; i < 10; i++) {
-          int start = rng.nextInt(100) + j;
-          int end = rng.nextInt(100) + j;
-          _bars.add(Bar(start * 1e6.toInt(), end * 1e6.toInt(), i.toString()));
-        }
-      }
-      // _bars.add(Bar(1 * 1e6.toInt(), 2 * 1e6.toInt(), "TEST"));
-      print("len ${_bars.length}");
+      // var rng = new Random();
+      // for (int j = 0; j < 1000; j += 100) {
+      //   for (int i = 0; i < 10; i++) {
+      //     int start = rng.nextInt(100) + j;
+      //     int end = rng.nextInt(100) + j;
+      //     _bars.add(Bar(start * 1e6.toInt(), end * 1e6.toInt(), i.toString()));
+      //   }
+      // }
+      _bars.add(Bar(1 * 1e6.toInt(), 2 * 1e6.toInt(), "TEST"));
     });
   }
 
   void _updateZoom(double delta) {
     setState(() {
-      this._zoom += delta / 1e6;
-      this._zoom = max(this._zoom, 0);
-      print("Zoom ${_zoom}");
+      this._zoom += delta / 1e8;
+      this._zoom = max(this._zoom, 1e-8);
     });
   }
 
   void _updatePan(double delta) {
     setState(() {
       this._pan += delta;
-      print("Pan ${_pan}");
+      this._pan = min(this._pan, 40);
     });
   }
 
@@ -100,19 +101,10 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title!),
-      ),
+      appBar: AppBar(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text(
-            'Canvas',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 20, height: 2),
-          ),
           Expanded(
             child: Listener(
               onPointerMove: (pointerSignal) {
@@ -166,10 +158,7 @@ class OpenPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    print("Canvas ${zoom} ${size.toString()}");
-    var paint1 = Paint()
-      ..color = Color(0xFFf44242)
-      ..style = PaintingStyle.fill;
+    print("Canvas $zoom ${size.toString()}");
 
     double barHeight = 20;
     double barPadding = 8;
@@ -198,12 +187,32 @@ class OpenPainter extends CustomPainter {
       // print("Bar($start -> $length)");
     }
 
-    for (int i = 0; i < 100; i++) {
+    // var unit = 1e9;
+    // for(; unit < 1e-6; unit / 10) {
+    //  if(unit * zoom + pan)
+    // }
+
+    var widthNs = pxToNs(size.width, zoom);
+    var levels = log(widthNs) ~/ log(10);
+    print("WIDTH $widthNs");
+    print("LEV: $levels");
+    print(Greeter.greet("Noah"));
+
+    // var spacing = 1e6 * zoom;
+    // print(size.width / spacing);
+    // while ((size.width / spacing) > 10) {
+    //   spacing /= 10;
+    //   print("while");
+    // }
+    // print("SPACING $spacing");
+    for (int i = 0; i < 10; i++) {
       // Draw the grid.
+      double divisor = pow(10, levels).toDouble();
+      print(divisor);
       double x = i.toDouble() * 1e6 * zoom + pan;
+      print(x);
       double y = size.height - 30;
-      canvas.drawLine(
-          Offset(x, 0), Offset(x, y), Paint()..color = Colors.black);
+      canvas.drawLine(Offset(x, 0), Offset(x, y), Paint()..color = Colors.grey);
 
       // Draw the time span annotations.
       var builder = ParagraphBuilder(ParagraphStyle());
@@ -234,4 +243,12 @@ class Bar {
   String isr = "";
 
   Bar(this.startNs, this.endNs, this.isr);
+}
+
+double pxToNs(double px, double zoom) {
+  return px / (1e3 * zoom);
+}
+
+double nsToPx(double ns, double zoom) {
+  return ns * (1e3 * zoom);
 }
