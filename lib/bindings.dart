@@ -44,6 +44,46 @@ class GreeterBindings {
       _lookup<ffi.NativeFunction<_c_rust_cstr_free>>('rust_cstr_free');
   late final _dart_rust_cstr_free _rust_cstr_free =
       _rust_cstr_free_ptr.asFunction<_dart_rust_cstr_free>();
+
+  int create() {
+    return _create();
+  }
+
+  late final _create_ptr = _lookup<ffi.NativeFunction<_c_create>>('create');
+  late final _dart_create _create = _create_ptr.asFunction<_dart_create>();
+
+  void poll(
+    int handle,
+  ) {
+    return _poll(
+      handle,
+    );
+  }
+
+  late final _poll_ptr = _lookup<ffi.NativeFunction<_c_poll>>('poll');
+  late final _dart_poll _poll = _poll_ptr.asFunction<_dart_poll>();
+
+  ffi.Pointer<Interval> events(
+    int handle,
+  ) {
+    return _events(
+      handle,
+    );
+  }
+
+  late final _events_ptr = _lookup<ffi.NativeFunction<_c_events>>('events');
+  late final _dart_events _events = _events_ptr.asFunction<_dart_events>();
+}
+
+class Interval extends ffi.Struct {
+  @ffi.Int32()
+  external int start;
+
+  @ffi.Int32()
+  external int end;
+
+  @ffi.Int32()
+  external int isr;
 }
 
 typedef _c_rust_greeting = ffi.Pointer<ffi.Int8> Function(
@@ -60,4 +100,24 @@ typedef _c_rust_cstr_free = ffi.Void Function(
 
 typedef _dart_rust_cstr_free = void Function(
   ffi.Pointer<ffi.Int8> s,
+);
+
+typedef _c_create = ffi.Int32 Function();
+
+typedef _dart_create = int Function();
+
+typedef _c_poll = ffi.Void Function(
+  ffi.Int32 handle,
+);
+
+typedef _dart_poll = void Function(
+  int handle,
+);
+
+typedef _c_events = ffi.Pointer<Interval> Function(
+  ffi.Int32 handle,
+);
+
+typedef _dart_events = ffi.Pointer<Interval> Function(
+  int handle,
 );

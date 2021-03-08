@@ -10,3 +10,11 @@ edition = "2018"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
+probe-rs = { path = "../../probe-rs/probe-rs" }
+anyhow = "*"
+serde = "*"
+pretty_env_logger = "*"
+serde_json = "*"
+svd-parser = "*"
+log = "*"
+lazy_static = "*"

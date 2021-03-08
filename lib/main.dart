@@ -13,21 +13,11 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tracer',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
       home: MyHomePage(title: 'Tracer'),
@@ -38,15 +28,6 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key? key, this.title}) : super(key: key);
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String? title;
 
   @override
@@ -54,13 +35,19 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  static const double INITIAL_ZOOM = 0.0; // px / ns
+  static const double INITIAL_PAN = 0.0; // ns
+
   List<Bar> _bars = [];
-  double _zoom = 1.0 / 1e6;
-  double _pan = 0;
+  double _zoom = INITIAL_ZOOM; // px / ns
+  double _pan = INITIAL_PAN; // ns
 
   void initState() {
     super.initState();
     _setBars();
+    if (_zoom == INITIAL_ZOOM) {
+      _setZoom(1280 / 10); // px / ns
+    }
   }
 
   void _setBars() {
@@ -74,32 +61,45 @@ class _MyHomePageState extends State<MyHomePage> {
       //     _bars.add(Bar(start * 1e6.toInt(), end * 1e6.toInt(), i.toString()));
       //   }
       // }
-      _bars.add(Bar(1 * 1e6.toInt(), 2 * 1e6.toInt(), "TEST"));
+      _bars.add(Bar(1 * 1e9.toInt(), 2 * 1e9.toInt(), "sec"));
+      _bars.add(Bar(1 * 1e6.toInt(), 2 * 1e6.toInt(), "ms"));
+      _bars.add(Bar(1 * 1e3.toInt(), 2 * 1e3.toInt(), "us"));
+      _bars.add(Bar(1 * 1e0.toInt(), 2 * 1e0.toInt(), "ns"));
     });
   }
 
   void _updateZoom(double delta) {
     setState(() {
-      this._zoom += delta / 1e8;
+      this._zoom *= 1 + (delta / 1e2);
+      this._zoom = max(this._zoom, 1e-8);
+    });
+  }
+
+  void _setZoom(double zoom) {
+    // px / ns
+    setState(() {
+      this._zoom = zoom;
       this._zoom = max(this._zoom, 1e-8);
     });
   }
 
   void _updatePan(double delta) {
     setState(() {
-      this._pan += delta;
-      this._pan = min(this._pan, 40);
+      this._pan += delta / _zoom; // px / (px / ns) = ns
+      this._pan = min(this._pan, 0.5);
+    });
+  }
+
+  void _resetState() {
+    _setBars();
+    setState(() {
+      this._zoom = INITIAL_ZOOM;
+      this._pan = INITIAL_PAN;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(),
       body: Column(
@@ -123,7 +123,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _setBars,
+        onPressed: _resetState,
         tooltip: 'Increment',
         child: Icon(Icons.add),
       ),
@@ -166,7 +166,6 @@ class OpenPainter extends CustomPainter {
 
     HashMap<String, EventStyle> isrs = HashMap();
 
-    print("NEW!");
     for (final bar in bars) {
       EventStyle? potIsr = isrs[bar.isr];
       EventStyle isr;
@@ -180,49 +179,45 @@ class OpenPainter extends CustomPainter {
               ..style = PaintingStyle.fill);
         isrs[bar.isr] = isr;
       }
-      double start = bar.startNs.toDouble() * zoom + pan;
-      double length = (bar.endNs - bar.startNs).toDouble() * zoom;
-      double y = (isr.level.toDouble()) * (barHeight + barPadding) + offsetTop;
+      double start = bar.startNs.toDouble() * zoom + pan * zoom; // ns * px / ns + ns = px
+      double length = (bar.endNs - bar.startNs).toDouble() * zoom; // ns * px / ns = px
+      double y = (isr.level.toDouble()) * (barHeight + barPadding) + offsetTop; // 1 * px + px
       canvas.drawRect(Offset(start, y) & Size(length, barHeight), isr.paint);
       // print("Bar($start -> $length)");
     }
 
-    // var unit = 1e9;
-    // for(; unit < 1e-6; unit / 10) {
-    //  if(unit * zoom + pan)
-    // }
+    // Find the correct spacing of all the bars.
+    var spacing = zoom * 1; // px / ns * ns = px
+    while (size.width / spacing > 10) {
+      // px / px = 1
+      spacing *= 10; // px
+    }
 
-    var widthNs = pxToNs(size.width, zoom);
-    var levels = log(widthNs) ~/ log(10);
-    print("WIDTH $widthNs");
-    print("LEV: $levels");
-    print(Greeter.greet("Noah"));
+    // Find the number of digits the current grid numbers have.
+    final ns = (spacing / zoom).round().toInt(); // px / (px / ns) = ns
+    final levels = (log(ns) ~/ log(10)).toInt();
+    const NAMES = ["ns", "us", "ms", "s"];
 
-    // var spacing = 1e6 * zoom;
-    // print(size.width / spacing);
-    // while ((size.width / spacing) > 10) {
-    //   spacing /= 10;
-    //   print("while");
-    // }
-    // print("SPACING $spacing");
-    for (int i = 0; i < 10; i++) {
+    final y = size.height - 30;
+    for (var x = pan * zoom; x < size.width; x += spacing) {
       // Draw the grid.
-      double divisor = pow(10, levels).toDouble();
-      print(divisor);
-      double x = i.toDouble() * 1e6 * zoom + pan;
-      print(x);
-      double y = size.height - 30;
       canvas.drawLine(Offset(x, 0), Offset(x, y), Paint()..color = Colors.grey);
 
-      // Draw the time span annotations.
+      // Draw all the grid timescale annotations.
+
+      // Find the number to display.
+      var ns = (-pan + x / zoom).round().toInt(); // --ns + px / (px / ns) = ns
+      while (ns >= 1000) {
+        ns ~/= 1000;
+      }
+
+      // Display the number and unit for each bar.
       var builder = ParagraphBuilder(ParagraphStyle());
-      builder.pushStyle(
-          TextStyle(fontSize: 18, color: Colors.grey).getTextStyle());
-      builder.addText("$i ms");
+      builder.pushStyle(TextStyle(fontSize: 18, color: Colors.grey).getTextStyle());
+      builder.addText("${ns} ${NAMES[levels ~/ 3]}");
       var paragraph = builder.build();
       paragraph.layout(ParagraphConstraints(width: double.infinity));
-      canvas.drawParagraph(
-          paragraph, Offset(x - paragraph.minIntrinsicWidth, y));
+      canvas.drawParagraph(paragraph, Offset(x - paragraph.minIntrinsicWidth, y));
     }
   }
 
