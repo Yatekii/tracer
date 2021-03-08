@@ -183,6 +183,14 @@ class OpenPainter extends CustomPainter {
       double length = (bar.endNs - bar.startNs).toDouble() * zoom; // ns * px / ns = px
       double y = (isr.level.toDouble()) * (barHeight + barPadding) + offsetTop; // 1 * px + px
       canvas.drawRect(Offset(start, y) & Size(length, barHeight), isr.paint);
+
+      // Display the ISR name for each bar.
+      var builder = ParagraphBuilder(ParagraphStyle());
+      builder.pushStyle(TextStyle(fontSize: 15, color: Colors.white).getTextStyle());
+      builder.addText("${bar.isr}");
+      var paragraph = builder.build();
+      paragraph.layout(ParagraphConstraints(width: double.infinity));
+      canvas.drawParagraph(paragraph, Offset(start + 2, y));
       // print("Bar($start -> $length)");
     }
 
@@ -193,9 +201,6 @@ class OpenPainter extends CustomPainter {
       spacing *= 10; // px
     }
 
-    // Find the number of digits the current grid numbers have.
-    final ns = (spacing / zoom).round().toInt(); // px / (px / ns) = ns
-
     final y = size.height - 30;
     for (var x = pan * zoom; x < size.width; x += spacing) {
       // Draw the grid.
@@ -205,7 +210,7 @@ class OpenPainter extends CustomPainter {
 
       // Find the number to display.
       var ns = (-pan + x / zoom).round().toInt(); // --ns + px / (px / ns) = ns
-      final levels = ns == 0 ? 0 : (log(ns) / log(10)).round().toInt();
+      final levels = ns == 0 ? 0 : (log(ns) / log(10) + 1e-15).floor().toInt();
       var displayNs = ns.toDouble();
       while (displayNs >= 1000) {
         displayNs /= 1000.0;
